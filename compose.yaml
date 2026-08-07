@@ -1,3 +1,11 @@
+# compose-penpot
+# Copyright (C) 2026 compose-penpot contributors
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version. See the LICENSE file for details.
+
 networks:
   penpot:
 
@@ -10,7 +18,7 @@ services:
     image: "penpotapp/frontend:latest"
     restart: always
     ports:
-      - 9001:80
+      - 9001:8080
     volumes:
       - penpot_assets:/opt/data/assets
     depends_on:
@@ -35,7 +43,8 @@ services:
     networks:
       - penpot
     environment:
-      - PENPOT_FLAGS=enable-registration enable-login-with-password disable-email-verification enable-smtp enable-prepl-server
+      - PENPOT_FLAGS=enable-registration enable-login-with-password disable-email-verification enable-smtp enable-prepl-server enable-access-tokens
+      - PENPOT_SECRET_KEY=${PENPOT_SECRET_KEY}
       - PENPOT_PUBLIC_URI=http://localhost:9001
       - PENPOT_DATABASE_URI=postgresql://penpot-postgres/penpot
       - PENPOT_DATABASE_USERNAME=penpot
@@ -59,6 +68,7 @@ services:
     networks:
       - penpot
     environment:
+      - PENPOT_SECRET_KEY=${PENPOT_SECRET_KEY}
       - PENPOT_PUBLIC_URI=http://penpot-frontend
       - PENPOT_REDIS_URI=redis://penpot-redis/0
       
@@ -91,3 +101,19 @@ services:
       - "1080:1080"
     networks:
       - penpot
+
+  penpot-mcp:
+    image: "ghcr.io/zcube/penpot-mcp-server:latest"
+    restart: always
+    ports:
+      - 3000:3000
+    depends_on:
+      - penpot-backend
+    networks:
+      - penpot
+    environment:
+      - TRANSPORT=http
+      - HTTP_HOST=0.0.0.0
+      - HTTP_PORT=3000
+      - PENPOT_API_URL=http://penpot-frontend
+      - PENPOT_ACCESS_TOKEN=${PENPOT_ACCESS_TOKEN}
