@@ -1,2 +1,4 @@
 .env
 backups/
+ca-certs/*
+!ca-certs/.gitkeep

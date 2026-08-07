@@ -35,6 +35,30 @@ docker compose -f compose-local.yaml up -d
 
 ## Getting started
 
+### Automated setup
+
+`setup.sh` does the whole flow for you: it generates and persists
+`PENPOT_SECRET_KEY` in `.env`, starts every service except `penpot-mcp`,
+waits for the backend, registers (or logs into, if it already exists) an
+account, mints a Penpot access token, saves it as `PENPOT_ACCESS_TOKEN` in
+`.env`, and finally starts `penpot-mcp` with that token. `setup-local.sh` is
+the same script defaulting to `compose-local.yaml`.
+
+```sh
+./setup.sh [compose-file] [email] [password] [fullname]
+./setup-local.sh [email] [password] [fullname]
+
+# examples
+./setup.sh
+./setup.sh compose-local.yaml me@example.com 'Sup3rSecret!' "My Name"
+./setup-local.sh me@example.com 'Sup3rSecret!' "My Name"
+```
+
+It's safe to run again later (e.g. after `docker compose down -v`): it
+reuses the account if it already exists and just mints a fresh token.
+
+### Manual setup
+
 1. Set a secret key (used by `penpot-backend`/`penpot-exporter` to derive
    session and invitation tokens) in a `.env` file next to `compose.yaml`:
 

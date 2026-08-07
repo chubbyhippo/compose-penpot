@@ -24,13 +24,14 @@ services:
     depends_on:
       - penpot-backend
       - penpot-exporter
+      - penpot-mcp
     networks:
       - penpot
     labels:
       - "traefik.enable=true"
 
     environment:
-      - PENPOT_FLAGS=enable-registration enable-login-with-password
+      - PENPOT_FLAGS=enable-registration enable-login-with-password enable-mcp
 
   penpot-backend:
     image: "penpotapp/backend:latest"
@@ -43,7 +44,7 @@ services:
     networks:
       - penpot
     environment:
-      - PENPOT_FLAGS=enable-registration enable-login-with-password disable-email-verification enable-smtp enable-prepl-server enable-access-tokens
+      - PENPOT_FLAGS=enable-registration enable-login-with-password disable-email-verification enable-smtp enable-prepl-server enable-access-tokens enable-mcp
       - PENPOT_SECRET_KEY=${PENPOT_SECRET_KEY}
       - PENPOT_PUBLIC_URI=http://localhost:9001
       - PENPOT_DATABASE_URI=postgresql://penpot-postgres/penpot
@@ -71,6 +72,17 @@ services:
       - PENPOT_SECRET_KEY=${PENPOT_SECRET_KEY}
       - PENPOT_PUBLIC_URI=http://penpot-frontend
       - PENPOT_REDIS_URI=redis://penpot-redis/0
+
+  penpot-mcp:
+    # Official Penpot MCP server. Enabled via the `enable-mcp` flag on
+    # penpot-backend/penpot-frontend; the frontend's nginx proxies
+    # /mcp/* to this service internally (http://penpot-mcp:4401 for
+    # HTTP/SSE, :4402 for websocket), so MCP clients connect through
+    # the frontend's own port (9001), not a separate port here.
+    image: "penpotapp/mcp:latest"
+    restart: always
+    networks:
+      - penpot
       
   penpot-postgres:
     image: "postgres:15"
@@ -101,19 +113,3 @@ services:
       - "1080:1080"
     networks:
       - penpot
-
-  penpot-mcp:
-    image: "ghcr.io/zcube/penpot-mcp-server:latest"
-    restart: always
-    ports:
-      - 3000:3000
-    depends_on:
-      - penpot-backend
-    networks:
-      - penpot
-    environment:
-      - TRANSPORT=http
-      - HTTP_HOST=0.0.0.0
-      - HTTP_PORT=3000
-      - PENPOT_API_URL=http://penpot-frontend
-      - PENPOT_ACCESS_TOKEN=${PENPOT_ACCESS_TOKEN}
