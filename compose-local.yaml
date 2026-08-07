@@ -1,0 +1,105 @@
+# compose-penpot (local development)
+# Copyright (C) 2026 compose-penpot contributors
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version. See the LICENSE file for details.
+#
+# Minimal stack for local development: Penpot core services plus the
+# MCP server. Mailcatcher and Traefik labels are intentionally left out
+# since they aren't needed to develop/test against the MCP server. The
+# exporter is still required: penpot-frontend's nginx config always
+# proxies to a "penpot-exporter" upstream, so the frontend fails to start
+# without it.
+
+networks:
+  penpot:
+
+volumes:
+  penpot_postgres_v15:
+  penpot_assets:
+
+services:
+  penpot-frontend:
+    image: "penpotapp/frontend:latest"
+    restart: always
+    ports:
+      - 9001:8080
+    volumes:
+      - penpot_assets:/opt/data/assets
+    depends_on:
+      - penpot-backend
+      - penpot-exporter
+    networks:
+      - penpot
+    environment:
+      - PENPOT_FLAGS=enable-registration enable-login-with-password
+
+  penpot-backend:
+    image: "penpotapp/backend:latest"
+    restart: always
+    volumes:
+      - penpot_assets:/opt/data/assets
+    depends_on:
+      - penpot-postgres
+      - penpot-redis
+    networks:
+      - penpot
+    environment:
+      - PENPOT_FLAGS=enable-registration enable-login-with-password disable-email-verification enable-prepl-server enable-access-tokens
+      - PENPOT_SECRET_KEY=${PENPOT_SECRET_KEY}
+      - PENPOT_PUBLIC_URI=http://localhost:9001
+      - PENPOT_DATABASE_URI=postgresql://penpot-postgres/penpot
+      - PENPOT_DATABASE_USERNAME=penpot
+      - PENPOT_DATABASE_PASSWORD=penpot
+      - PENPOT_REDIS_URI=redis://penpot-redis/0
+      - PENPOT_ASSETS_STORAGE_BACKEND=assets-fs
+      - PENPOT_STORAGE_ASSETS_FS_DIRECTORY=/opt/data/assets
+      - PENPOT_TELEMETRY_ENABLED=false
+
+  penpot-exporter:
+    image: "penpotapp/exporter:latest"
+    restart: always
+    networks:
+      - penpot
+    environment:
+      - PENPOT_SECRET_KEY=${PENPOT_SECRET_KEY}
+      - PENPOT_PUBLIC_URI=http://penpot-frontend
+      - PENPOT_REDIS_URI=redis://penpot-redis/0
+
+  penpot-postgres:
+    image: "postgres:15"
+    restart: always
+    stop_signal: SIGINT
+    volumes:
+      - penpot_postgres_v15:/var/lib/postgresql/data
+    networks:
+      - penpot
+    environment:
+      - POSTGRES_INITDB_ARGS=--data-checksums
+      - POSTGRES_DB=penpot
+      - POSTGRES_USER=penpot
+      - POSTGRES_PASSWORD=penpot
+
+  penpot-redis:
+    image: redis:7
+    restart: always
+    networks:
+      - penpot
+
+  penpot-mcp:
+    image: "ghcr.io/zcube/penpot-mcp-server:latest"
+    restart: always
+    ports:
+      - 3000:3000
+    depends_on:
+      - penpot-backend
+    networks:
+      - penpot
+    environment:
+      - TRANSPORT=http
+      - HTTP_HOST=0.0.0.0
+      - HTTP_PORT=3000
+      - PENPOT_API_URL=http://penpot-frontend
+      - PENPOT_ACCESS_TOKEN=${PENPOT_ACCESS_TOKEN}
